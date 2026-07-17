@@ -4,6 +4,9 @@ import 'package:uuid/uuid.dart';
 import 'models/match_state.dart';
 import 'theme/app_theme.dart';
 import 'services/supabase_service.dart';
+import 'screens/splash_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/history_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/toss_screen.dart';
 import 'screens/openers_screen.dart';
@@ -15,7 +18,7 @@ import 'screens/result_screen.dart';
 /// row is its own current match across app restarts, with no login.
 const _matchIdKey = 'cricket_scoreboard_match_id_v1';
 
-enum _Screen { setup, toss, openers, match, result }
+enum _Screen { home, setup, toss, openers, match, result }
 
 class ScoreboardHome extends StatefulWidget {
   const ScoreboardHome({super.key});
@@ -26,10 +29,16 @@ class ScoreboardHome extends StatefulWidget {
 
 class _ScoreboardHomeState extends State<ScoreboardHome> {
   MatchState state = MatchState();
-  _Screen screen = _Screen.setup;
+  _Screen screen = _Screen.home;
   bool _loaded = false;
   String? _matchId;
   String? _loadError;
+
+  /// If the saved match is unfinished, this remembers which screen it
+  /// was left on so the Home screen's "Resume" button can jump straight
+  /// back there — without ever auto-opening it on launch.
+  _Screen? _resumeScreen;
+  String? _resumeStageLabel;
 
   @override
   void initState() {
@@ -44,29 +53,42 @@ class _ScoreboardHomeState extends State<ScoreboardHome> {
     await prefs.setString(_matchIdKey, matchId);
     _matchId = matchId;
 
+    _resumeScreen = null;
+    _resumeStageLabel = null;
+
     try {
       final json = await SupabaseService.loadMatch(matchId);
       if (json != null) {
-        state = MatchState.fromJson(json);
-        if (state.matchOver) {
-          screen = _Screen.result;
-        } else if (state.battingTeam != null && state.striker != null) {
-          screen = _Screen.match;
-        } else if (state.battingTeam != null) {
-          screen = _Screen.openers;
-        } else {
-          screen = _Screen.setup;
+        final loadedState = MatchState.fromJson(json);
+        if (!loadedState.matchOver) {
+          // Keep the loaded match available to resume, but the app
+          // always opens on Home first — never straight into it.
+          state = loadedState;
+          if (state.battingTeam != null && state.striker != null) {
+            _resumeScreen = _Screen.match;
+            _resumeStageLabel = 'Innings ${state.innings}, ${state.score}/${state.wickets}';
+          } else if (state.battingTeam != null) {
+            _resumeScreen = _Screen.openers;
+            _resumeStageLabel = 'Selecting openers';
+          } else if (state.tossWinner != null) {
+            _resumeScreen = _Screen.toss;
+            _resumeStageLabel = 'Toss done';
+          } else {
+            _resumeScreen = _Screen.setup;
+            _resumeStageLabel = 'Team setup';
+          }
         }
+        // If the saved match is already finished, it lives in History —
+        // Home starts with a clean slate ready for "Create New Match".
       }
       _loadError = null;
     } catch (e) {
       // Common cause: SupabaseConfig.url / anonKey haven't been filled in
       // yet, or the cricket_matches table doesn't exist (run schema.sql).
       _loadError = e.toString();
-      state = MatchState();
-      screen = _Screen.setup;
     }
 
+    screen = _Screen.home;
     if (mounted) setState(() => _loaded = true);
   }
 
@@ -81,6 +103,28 @@ class _ScoreboardHomeState extends State<ScoreboardHome> {
         );
       }
     }
+  }
+
+  /// Starts a brand new match: fresh state + a brand new match id, so
+  /// nothing from any previous (even unfinished) match carries over.
+  /// The old match, if any, stays safely in History.
+  Future<void> _createNewMatch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final newId = const Uuid().v4();
+    await prefs.setString(_matchIdKey, newId);
+    _matchId = newId;
+
+    setState(() {
+      state = MatchState();
+      _resumeScreen = null;
+      _resumeStageLabel = null;
+      screen = _Screen.setup;
+    });
+  }
+
+  void _resumeMatch() {
+    if (_resumeScreen == null) return;
+    setState(() => screen = _resumeScreen!);
   }
 
   Future<void> _resetAll() async {
@@ -98,7 +142,8 @@ class _ScoreboardHomeState extends State<ScoreboardHome> {
     );
     if (confirm != true) return;
 
-    // Start a brand new match row so old results/history stay in Supabase.
+    // Start a brand new match row so old results/history stay in Supabase,
+    // then send the user back to Home rather than straight into a new one.
     final prefs = await SharedPreferences.getInstance();
     final newId = const Uuid().v4();
     await prefs.setString(_matchIdKey, newId);
@@ -106,14 +151,26 @@ class _ScoreboardHomeState extends State<ScoreboardHome> {
 
     setState(() {
       state = MatchState();
-      screen = _Screen.setup;
+      _resumeScreen = null;
+      _resumeStageLabel = null;
+      screen = _Screen.home;
+    });
+  }
+
+  /// Called when a match finishes naturally (not via the reset button).
+  /// The finished match is safe in Supabase/History, so Home no longer
+  /// offers to "resume" it.
+  void _goHomeAfterMatchEnd() {
+    setState(() {
+      _resumeScreen = null;
+      _resumeStageLabel = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_loaded) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const SplashScreen();
     }
 
     if (_loadError != null) {
@@ -156,6 +213,18 @@ class _ScoreboardHomeState extends State<ScoreboardHome> {
 
     Widget body;
     switch (screen) {
+      case _Screen.home:
+        body = HomeScreen(
+          resumableState: _resumeScreen != null ? state : null,
+          resumeStageLabel: _resumeStageLabel,
+          onCreateNew: _createNewMatch,
+          onResume: _resumeMatch,
+          onOpenHistory: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const HistoryScreen()),
+          ),
+        );
+        break;
       case _Screen.setup:
         body = SetupScreen(
           state: state,
@@ -190,7 +259,10 @@ class _ScoreboardHomeState extends State<ScoreboardHome> {
           state: state,
           onChanged: _save,
           onInningsEnd: () => setState(() => screen = _Screen.openers),
-          onMatchEnd: () => setState(() => screen = _Screen.result),
+          onMatchEnd: () {
+            _goHomeAfterMatchEnd();
+            setState(() => screen = _Screen.result);
+          },
           onReset: _resetAll,
         );
         break;
@@ -201,6 +273,27 @@ class _ScoreboardHomeState extends State<ScoreboardHome> {
 
     return Scaffold(
       backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.panel,
+        title: const Text('🏏 Cricket Scoreboard'),
+        leading: screen != _Screen.home
+            ? IconButton(
+          icon: const Icon(Icons.home_outlined),
+          tooltip: 'Home',
+          onPressed: () => setState(() => screen = _Screen.home),
+        )
+            : null,
+        actions: [
+          IconButton(
+            tooltip: 'Match history',
+            icon: const Icon(Icons.history),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HistoryScreen()),
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(child: body),
     );
   }

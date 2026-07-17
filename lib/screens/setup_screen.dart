@@ -96,10 +96,6 @@ class _SetupScreenState extends State<SetupScreen> {
     return ListView(
       padding: const EdgeInsets.all(14),
       children: [
-        const Text('🏏 Cricket Scoreboard',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.amber, fontSize: 20, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 18),
         SectionCard(
           title: 'Team names',
           child: Column(

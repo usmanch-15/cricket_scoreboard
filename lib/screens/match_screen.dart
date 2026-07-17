@@ -268,7 +268,7 @@ class _MatchScreenState extends State<MatchScreen> {
                 crossAxisSpacing: 8,
                 childAspectRatio: 1.6,
                 children: [
-                  for (final r in [0, 1, 2, 3, 4, 5, 6, 7]) _runButton(r),
+                  for (final r in [0, 1, 2, 3, 4, 5, 6]) _runButton(r),
                 ],
               ),
               const SizedBox(height: 10),
@@ -285,7 +285,6 @@ class _MatchScreenState extends State<MatchScreen> {
                   _extraButton('Leg bye', _addLegBye),
                   _extraButton('Bye', _addBye),
                   _extraButton('Dot ball', () => _addRuns(0)),
-                  _extraButton('Change over', _openChangeBowler),
                 ],
               ),
               const SizedBox(height: 10),

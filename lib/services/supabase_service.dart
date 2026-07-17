@@ -43,4 +43,16 @@ class SupabaseService {
   static Future<void> deleteMatch(String matchId) async {
     await _client.from(_table).delete().eq('id', matchId);
   }
+
+  /// Returns every saved match (most recently updated first) — used by
+  /// the match history screen. Each entry has the row's `id`,
+  /// `updated_at`, and the full `state` JSON.
+  static Future<List<Map<String, dynamic>>> fetchAllMatches({int limit = 50}) async {
+    final rows = await _client
+        .from(_table)
+        .select('id, state, updated_at')
+        .order('updated_at', ascending: false)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(rows as List);
+  }
 }
