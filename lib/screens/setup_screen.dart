@@ -57,6 +57,14 @@ class _SetupScreenState extends State<SetupScreen> {
       );
       return;
     }
+    final isDuplicate =
+    team.players.any((p) => p.toLowerCase() == name.toLowerCase());
+    if (isDuplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"$name" is already in this team.')),
+      );
+      return;
+    }
     setState(() {
       team.players.add(name);
       playerController.clear();
@@ -80,8 +88,23 @@ class _SetupScreenState extends State<SetupScreen> {
     final s = widget.state;
     s.teamA.name = teamAController.text.trim().isEmpty ? 'Team A' : teamAController.text.trim();
     s.teamB.name = teamBController.text.trim().isEmpty ? 'Team B' : teamBController.text.trim();
-    s.totalOvers = int.tryParse(oversController.text) ?? 20;
-    s.totalWickets = int.tryParse(wicketsController.text) ?? 10;
+
+    final overs = int.tryParse(oversController.text) ?? 20;
+    final wickets = int.tryParse(wicketsController.text) ?? 10;
+    s.totalOvers = overs.clamp(1, 50);
+    s.totalWickets = wickets.clamp(1, 10);
+
+    if (overs < 1 || overs > 50) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Overs 1–50 ke beech honi chahiye — adjusted.')),
+      );
+    }
+    if (wickets < 1 || wickets > 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Wickets 1–10 ke beech honi chahiye — adjusted.')),
+      );
+    }
+
     widget.onContinue();
   }
 

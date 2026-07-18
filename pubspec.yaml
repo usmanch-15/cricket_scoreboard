@@ -18,6 +18,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_native_splash: ^2.4.1
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
@@ -38,3 +39,15 @@ flutter_native_splash:
     icon_background_color: "#0E1512"
     image_dark: assets/splash/splash_logo.png
     icon_background_color_dark: "#0E1512"
+
+# Config for the `flutter_launcher_icons` package. After running
+# `flutter pub get`, generate the app icon with:
+#   dart run flutter_launcher_icons
+# Re-run that command any time you change this section or the source image.
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/splash/splash_logo.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#0E1512"
+  adaptive_icon_foreground: "assets/splash/splash_logo.png"

@@ -1,4 +1,4 @@
-package com.example.cricket_scoreboard
+package com.cricketscoreboard
 
 import io.flutter.embedding.android.FlutterActivity
 
