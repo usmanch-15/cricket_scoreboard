@@ -346,7 +346,24 @@ class MatchState {
     matchOver = true;
   }
 
-  // ---------- post-match analysis ----------
+  /// Innings records to use for post-match analysis (Man of the Match,
+  /// best batting/bowling, top lists). Normally this is just
+  /// [completedInnings]. But a match saved by an older build of the app
+  /// (before this feature existed) — or any match where the final
+  /// innings snapshot never made it in for some reason — would otherwise
+  /// show an empty summary even though the raw ball-by-ball data is
+  /// right there in [battingStats]/[bowlingStats]. So: if the match is
+  /// marked finished but we're missing the expected two innings, and the
+  /// live stats still have data sitting in them, fold that in as a
+  /// best-effort final innings rather than showing nothing.
+  List<InningsRecord> get analysisInnings {
+    final expectedCount = firstInningsBattingTeam != null ? 2 : 1;
+    final hasLiveData = battingStats.isNotEmpty || bowlingStats.isNotEmpty;
+    if (matchOver && completedInnings.length < expectedCount && hasLiveData) {
+      return [...completedInnings, _snapshotCurrentInnings()];
+    }
+    return completedInnings;
+  }
 
   /// Combines batting + bowling figures for every player across every
   /// completed innings, keyed by player name.
@@ -355,7 +372,7 @@ class MatchState {
     PlayerPerformance perf(String name) =>
         map.putIfAbsent(name, () => PlayerPerformance(name));
 
-    for (final inn in completedInnings) {
+    for (final inn in analysisInnings) {
       inn.battingStats.forEach((name, bs) {
         final p = perf(name);
         p.runs += bs.runs;
