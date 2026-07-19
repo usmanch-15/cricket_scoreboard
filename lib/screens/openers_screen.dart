@@ -31,7 +31,10 @@ class _OpenersScreenState extends State<OpenersScreen> {
 
   List<DropdownMenuItem<String>> _options(List<String> players) => [
     ...players.map((p) => DropdownMenuItem(value: p, child: Text(p))),
-    const DropdownMenuItem(value: '__manual__', child: Text('Type name manually...')),
+    const DropdownMenuItem(
+      value: '__manual__',
+      child: Text('+ Add new player', style: TextStyle(color: AppColors.accent)),
+    ),
   ];
 
   void _confirm() {

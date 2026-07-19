@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/match_state.dart';
 import '../models/models.dart';
+import '../services/pdf_export_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/scoreboard_widgets.dart';
 import 'result_screen.dart';
@@ -9,17 +10,57 @@ import 'result_screen.dart';
 /// matches reuse the same summary shown right after a live match ends
 /// (result, Man of the Match, best performances, full scorecards, and
 /// the ball-by-ball replay). Matches that were left mid-way show a
-/// simpler live-snapshot view instead.
-class HistoryDetailScreen extends StatelessWidget {
+/// simpler live-snapshot view instead. A share action in the app bar
+/// lets the user export the scorecard as a PDF and send it anywhere —
+/// including straight to a WhatsApp chat.
+class HistoryDetailScreen extends StatefulWidget {
   final MatchState state;
 
   const HistoryDetailScreen({super.key, required this.state});
 
   @override
+  State<HistoryDetailScreen> createState() => _HistoryDetailScreenState();
+}
+
+class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
+  bool _sharing = false;
+
+  MatchState get state => widget.state;
+
+  Future<void> _shareScorecard() async {
+    if (_sharing) return;
+    setState(() => _sharing = true);
+    try {
+      await PdfExportService.shareScorecard(state);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not create the scorecard PDF. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final title = '${state.teamA.name} vs ${state.teamB.name}';
+    final canShare = state.battingTeam != null; // there's something worth sharing
 
-    if (state.battingTeam == null) {
+    final shareAction = IconButton(
+      tooltip: 'Share scorecard as PDF',
+      icon: _sharing
+          ? const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.text),
+      )
+          : const Icon(Icons.share_outlined),
+      onPressed: canShare && !_sharing ? _shareScorecard : null,
+    );
+
+    if (!canShare) {
       return Scaffold(
         backgroundColor: AppColors.bg,
         appBar: AppBar(backgroundColor: AppColors.panel, title: Text(title)),
@@ -39,7 +80,11 @@ class HistoryDetailScreen extends StatelessWidget {
     if (state.matchOver) {
       return Scaffold(
         backgroundColor: AppColors.bg,
-        appBar: AppBar(backgroundColor: AppColors.panel, title: Text(title)),
+        appBar: AppBar(
+          backgroundColor: AppColors.panel,
+          title: Text(title),
+          actions: [shareAction],
+        ),
         body: SafeArea(
           child: ResultScreen(
             state: state,
@@ -51,7 +96,11 @@ class HistoryDetailScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      appBar: AppBar(backgroundColor: AppColors.panel, title: Text(title)),
+      appBar: AppBar(
+        backgroundColor: AppColors.panel,
+        title: Text(title),
+        actions: [shareAction],
+      ),
       body: SafeArea(child: _LiveSnapshotView(state: state)),
     );
   }

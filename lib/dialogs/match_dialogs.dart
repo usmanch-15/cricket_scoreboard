@@ -10,8 +10,8 @@ const _dismissalTypes = [
   'Hit Wicket',
 ];
 
-/// A simple dropdown-in-a-dialog picker. If the user picks "Type name
-/// manually...", a text field appears in-place. Returns null on cancel.
+/// A simple dropdown-in-a-dialog picker. If the user picks "+ Add new
+/// player", a text field appears in-place. Returns null on cancel.
 Future<String?> _pickPlayerDialog({
   required BuildContext context,
   required String title,
@@ -39,7 +39,9 @@ Future<String?> _pickPlayerDialog({
                   items: [
                     ...options.map((p) => DropdownMenuItem(value: p, child: Text(p))),
                     const DropdownMenuItem(
-                        value: '__manual__', child: Text('Type name manually...')),
+                      value: '__manual__',
+                      child: Text('+ Add new player', style: TextStyle(color: AppColors.accent)),
+                    ),
                   ],
                   onChanged: (v) {
                     setState(() {
